@@ -1,0 +1,36 @@
+name: Auto cherry-pick and PR on merge to main
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  auto-cherry-pick-and-pr:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'hotfix')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get merged commit SHA
+        id: get-sha
+        run: echo "::set-output name=sha::$(echo ${GITHUB_SHA})"
+
+      - name: List release branches
+        id: list-branches
+        run: |
+          BRANCHES=$(git branch -r | grep 'origin/release/' | sed 's/origin\///' | tr '\n' ',')
+          echo "::set-output name=branches::${BRANCHES}"
+
+      - name: Cherry-pick and create PR for each release branch
+        run: |
+          IFS=',' read -ra BRANCHES <<< "${{ steps.list-branches.outputs.branches }}"
+          for BRANCH in "${BRANCHES[@]}"; do
+            git checkout $BRANCH
+            git cherry-pick ${{ steps.get-sha.outputs.sha }}
+            git push origin $BRANCH
+            gh pr create --title "Cherry-pick of ${{ steps.get-sha.outputs.sha }}" --body "This PR was automatically created by GitHub Actions." --base $BRANCH --head $BRANCH
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
