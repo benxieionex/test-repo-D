@@ -15,13 +15,13 @@ jobs:
 
       - name: Get merged commit SHA
         id: get-sha
-        run: echo "::set-output name=sha::$(echo ${GITHUB_SHA})"
+        run: echo "sha=$(echo ${GITHUB_SHA})" >> $GITHUB_OUTPUT
 
       - name: List release branches
         id: list-branches
         run: |
           BRANCHES=$(git branch -r | grep 'origin/release/' | sed 's/origin\///' | tr '\n' ',')
-          echo "::set-output name=branches::${BRANCHES}"
+          echo "branches=${BRANCHES}" >> $GITHUB_OUTPUT
 
       - name: Cherry-pick and create PR for each release branch
         run: |
