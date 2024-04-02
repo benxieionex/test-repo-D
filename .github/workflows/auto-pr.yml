@@ -12,25 +12,32 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get merged commit SHA
         id: get-sha
-        run: echo "sha=$(echo ${GITHUB_SHA})" >> $GITHUB_OUTPUT
-
+        run: |
+          set -ex
+          echo "sha=$(echo ${GITHUB_SHA})" >> $GITHUB_OUTPUT
       - name: List release branches
         id: list-branches
         run: |
+          set -ex
+          echo "aaa: $(git branch -r)"
           BRANCHES=$(git branch -r | grep 'origin/release/' | sed 's/origin\///' | tr '\n' ',')
           echo "branches=${BRANCHES}" >> $GITHUB_OUTPUT
-
+      - name: Set git user
+        run: |
+          set -ex
+          git config --local user.name "${{ github.event.pusher.name }}"
+          git config --local user.email "${{ github.event.pusher.email }}"
       - name: Cherry-pick and create PR for each release branch
         run: |
+          set -ex
           IFS=',' read -ra BRANCHES <<< "${{ steps.list-branches.outputs.branches }}"
           for BRANCH in "${BRANCHES[@]}"; do
-            git checkout $BRANCH
-            git cherry-pick ${{ steps.get-sha.outputs.sha }}
-            git push origin $BRANCH
-            gh pr create --title "Cherry-pick of ${{ steps.get-sha.outputs.sha }}" --body "This PR was automatically created by GitHub Actions." --base $BRANCH --head $BRANCH
+            gh pr create --title "merge ${{ github.head_ref }} to ${{$BRANCH}}" --body "This PR was automatically created by GitHub Actions." --base $BRANCH --head ${{github.head_ref}}
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
